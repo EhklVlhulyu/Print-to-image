@@ -1,0 +1,7 @@
+﻿<Filters>
+  <Filter dll="ptimagefilter.dll" clsid="{8D1A7C42-3B6E-4F90-A2D5-6C1E9B47F308}" name="Print to image render filter">
+    <Input guid="{b8cf8530-5562-47c4-ab67-b1f69ecf961e}" comment="IID_IXpsDocumentProvider"/>
+    <Output guid="{65bb7f1b-371e-4571-8ac7-912f510c1a38}" comment="IID_IPrintWriteStream"/>
+  </Filter>
+  <FilterServiceProvider dll="XpsRasterService.dll"/>
+</Filters>

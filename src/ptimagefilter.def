@@ -1,0 +1,5 @@
+LIBRARY      "ptimagefilter.DLL"
+
+EXPORTS
+        DllGetClassObject     PRIVATE
+        DllCanUnloadNow       PRIVATE

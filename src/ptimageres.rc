@@ -1,0 +1,16 @@
+// Print to image - driver string resources.
+// The IDs are referenced from ptimage-manifest.ini ([FileSave] and SaveAsTitle).
+
+#pragma code_page(65001)
+
+#include <windows.h>
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+STRINGTABLE
+BEGIN
+    100 "JPEG 图像 (*.jpg)"
+    101 "PNG 图像 (*.png)"
+    102 "BMP 位图 (*.bmp)"
+    200 "打印输出另存为"
+END

@@ -1,0 +1,29 @@
+# 构建产物
+build/obj/
+build/obj32/
+build/*.dll
+build/*.lib
+build/*.exp
+build/*.pdb
+build/*.exe
+build/x86/
+build/vs/
+build/package/
+build/test-out/
+build/verify/
+build/tests/*.pdb
+build/tests/test-uninstall-reg.ps1
+build/dist-stage/
+build/nsis/
+
+# Visual Studio 用户文件
+.vs/
+*.user
+*.VC.db
+*.VC.opendb
+
+# 构建工具（NSIS 便携版，不入库）
+tools/nsis/
+
+# 发行包
+dist/

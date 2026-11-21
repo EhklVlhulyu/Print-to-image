@@ -1,0 +1,6 @@
+<FixedPage Width="793.76" Height="1122.56" xmlns="http://schemas.openxps.org/oxps/v1.0" xml:lang="und">
+	<!-- Microsoft XPS Document Converter (MXDC) Generated! Version: 0.3.19041.7802 -->
+	<Path Data="F1 M 96,96 L 697.92,96 697.92,1026.24 96,1026.24 z"  Fill="#ffffffff" />
+	<Glyphs Fill="#ff000000" FontUri="../Resources/Fonts/73784F5B-DBAF-4AB3-A3BE-D52E68E4BF6C.odttf" FontRenderingEmSize="32.0012" StyleSimulations="None" OriginX="101.28" OriginY="124.96" Indices="51,66;68;74;72;3;20" UnicodeString="Page 1" />
+	<Path Data="F1 M 96,192 L 384,192 384,336 96,336 z"  Stroke="#ffff0000" StrokeThickness="0.96" />
+</FixedPage>
