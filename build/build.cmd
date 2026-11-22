@@ -60,6 +60,17 @@ link /nologo /DLL /NOENTRY /MACHINE:X64 ^
 echo BUILD OK: build\ptimagefilter.dll
 echo BUILD OK: build\ptimageres.dll
 
+rem --- 安装辅助程序：用 Win32 API 注册 v4 驱动并建队列（不使用 PowerShell） ---
+rem --- installer helper: registers the v4 driver and queue through Win32 only ---
+cl /nologo /c /EHsc /W3 /O2 /MT /DUNICODE /D_UNICODE /DWIN32 /DWIN64 /D_AMD64_ ^
+   /Fo:build\obj\ /I src tools\ptimageinstall\ptimageinstall.cpp || goto :failed
+
+link /nologo /SUBSYSTEM:CONSOLE /MACHINE:X64 /OUT:build\ptimageinstall.exe ^
+     /MANIFEST:NO /DYNAMICBASE /NXCOMPAT ^
+     build\obj\ptimageinstall.obj winspool.lib advapi32.lib user32.lib setupapi.lib || goto :failed
+
+echo BUILD OK: build\ptimageinstall.exe
+
 rem ---------------------------------------------------------------- x86 ------
 call "%VCDIR%\vcvars32.bat" >nul
 if errorlevel 1 (
@@ -94,6 +105,16 @@ link /nologo /DLL /NOENTRY /MACHINE:X86 ^
 
 echo BUILD OK: build\x86\ptimagefilter.dll
 echo BUILD OK: build\x86\ptimageres.dll
+
+rem --- 32 位安装辅助程序 ---
+cl /nologo /c /EHsc /W3 /O2 /MT /DUNICODE /D_UNICODE /DWIN32 /D_X86_ ^
+   /Fo:build\obj32\ /I src tools\ptimageinstall\ptimageinstall.cpp || goto :failed
+
+link /nologo /SUBSYSTEM:CONSOLE /MACHINE:X86 /OUT:build\x86\ptimageinstall.exe ^
+     /MANIFEST:NO /DYNAMICBASE /NXCOMPAT ^
+     build\obj32\ptimageinstall.obj winspool.lib advapi32.lib user32.lib setupapi.lib || goto :failed
+
+echo BUILD OK: build\x86\ptimageinstall.exe
 
 popd
 exit /b 0

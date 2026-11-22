@@ -47,8 +47,10 @@ ptimage/
 │  └─ check-package.ps1      # 静态校验：文件清单、GUID 一致、资源字符串、目录签名
 ├─ installer/
 │  ├─ ptimage.nsi           # NSIS 脚本：安装 + 卸载全部逻辑都在这里
+│  ├─ LICENSES.txt          # 安装向导的许可页 + 安装目录里的许可文本
 │  └─ build-nsis.ps1        # 组包 + 调用 makensis 生成 dist\print-to-images-1.0.0-setup.exe
 ├─ tools/
+│  ├─ ptimageinstall/ptimageinstall.cpp  # 安装辅助程序：Win32 API 注册驱动 + 建队列（不依赖 PowerShell）
 │  └─ nsis/nsis-3.10/       # NSIS 3.10 便携版（构建机用，不随发行包分发）
 ├─ dist/
 │  └─ print-to-images-1.0.0-setup.exe   # 最终交付物（唯一发行文件）
@@ -62,7 +64,7 @@ ptimage/
    └─ Exception.*, filtertypes.h, UnknownBase.h, precomp.h, WppTrace.h
 ```
 
-**驱动包共 10 个文件**：`ptimagefilter.dll`、`ptimageres.dll`、`ptimage.inf`、`ptimage.cat`、
+**驱动包共 11 个文件**：`ptimagefilter.dll`、`ptimageres.dll`、`ptimage.inf`、`ptimage_x86.inf`、`ptimage.cat`、
 `ptimage.cer`、`ptimage-manifest.ini`、`ptimage-pdc.xml`、`ptimage-pipelineconfig.xml`，
 外加 32 位版本 `x86\ptimagefilter.dll`、`x86\ptimageres.dll`。
 不含安装/卸载脚本，也不含文档——安装与卸载逻辑全部编译进 `print-to-images-1.0.0-setup.exe`。
@@ -126,7 +128,7 @@ build\test.cmd
 powershell -ExecutionPolicy Bypass -File scripts\build-package.ps1
 ```
 
-依次完成：编译（x64 + x86）→ 复制 10 个文件到 `build\package\`（含 `x86\`）→ `New-FileCatalog`（SHA-256）
+依次完成：编译（x64 + x86）→ 复制 11 个文件到 `build\package\`（含 `x86\`）→ `New-FileCatalog`（SHA-256）
 → 复用或新建自签名证书（`CN=Print to image self-signed driver`）→ `signtool` 签名 `ptimage.cat`。
 
 可选参数：`-SkipBuild`（复用已有 DLL）、`-SkipSign`（只组包不签名）。
@@ -135,8 +137,8 @@ powershell -ExecutionPolicy Bypass -File scripts\build-package.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check-package.ps1
 ```
 
-静态校验：10 个文件齐全且**没有多余文件**、INF 文件清单与磁盘一致、`ClassVer=4.0`、
-两个架构节（`NTamd64.6.2...9000` / `NTx86.6.2...9000`）与 `DriverVer=…,1.0.0`、
+静态校验：11 个文件齐全且**没有多余文件**、INF 文件清单与磁盘一致、`ClassVer=4.0`、
+两个**纯**架构 INF（`ptimage.inf` 只含 `NTamd64`、`ptimage_x86.inf` 只含 `NTx86`，都不带 OS 版本修饰）与 `DriverVer=…,1.0.0`、
 `PnpLockdown`、Printer 类 GUID、无 v3 专用指令、`PrinterDriverID` 两处一致、
 过滤器 CLSID 与 `src\dllentry.cpp` 一致、`FilterServiceProvider=XpsRasterService.dll`、
 `[FileSave]` 只有 jpg/png/bmp 且各自独立资源 ID、`XpsFormat=XPS`、
@@ -150,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File installer\build-nsis.ps1
 
 产物：`dist\print-to-images-1.0.0-setup.exe`（约 250 KB，内含 x64 + x86 两套 DLL）。
 
-- payload 只有 `build\package\` 的 10 个文件（含 `x86\` 子目录）；
+- payload 只有 `build\package\` 的 11 个文件（含 `x86\` 子目录与两个架构 INF）；
 - 构建时从 `ptimage.cer` 读出证书指纹，用 `/DCERTTHUMB=` 传给 `makensis`，
   卸载程序据此精确删除证书；
 - NSIS 为 32 位程序，安装/卸载全程用 `${DisableX64FSRedirection}` 关闭 WOW64 重定向，
@@ -158,7 +160,7 @@ powershell -ExecutionPolicy Bypass -File installer\build-nsis.ps1
 
 | 阶段 | 安装程序做的事 |
 | --- | --- |
-| 安装 | 清理旧队列/旧驱动/旧驱动包（驱动项里的 `InfPath` 取出 `oemNN.inf`）→ 解包 10 个文件 → `certutil -addstore Root/TrustedPublisher` → `pnputil /add-driver … /install` → 用 PowerShell 的 `Add-PrinterDriver` + `Add-Printer` 建 `PORTPROMPT:` 队列（脚本在安装时生成到 `%TEMP%` 并立即删除，**不用 `printui /if`**，因为它会弹出被安装窗口遮住的对话框而永久挂起）→ 读注册表确认队列存在 → 写“设置 → 应用”卸载项 → `WriteUninstaller` |
+| 安装 | 解包 11 个驱动文件（按架构选用 `ptimage.inf` 或 `ptimage_x86.inf`）→ `certutil -addstore Root/TrustedPublisher` 信任签名证书→ 运行 `ptimageinstall.exe install <inf> <名字> PORTPROMPT: <日志>`：`XcvData(AddPort)` 确保端口存在 → `AddPrinterDriverExW`（v4 驱动，`APD_COPY_ALL_FILES`）注册驱动 → `AddPrinterW` 建队列，每一步的 Win32 错误码都写进安装日志→ 读注册表确认队列存在（失败时 `printui /if /q` 兜底一次）→ 写“设置 → 应用”卸载项 → `WriteUninstaller`。**整个安装过程不执行任何 PowerShell 脚本** |
 | 卸载 | 读驱动项 `InfPath` 记下 `oemNN.inf` → `Remove-Printer` → `Remove-PrinterDriver` → `pnputil /delete-driver oemNN.inf /uninstall /force` → `certutil -delstore` 删除 Root 与 TrustedPublisher 里的证书 → 删除卸载项/安装项注册表 → 延迟删除程序目录 |
 
 安装失败时安装程序会弹窗并打开 `%ProgramData%\Print to image\`，其中的 `install.log` 记录了
@@ -223,24 +225,17 @@ powershell -ExecutionPolicy Bypass -File build\tests\verify-driver.ps1
 - **白底合成**：光栅化器返回的是预乘 alpha（`32bppPBGRA`），直接丢弃 alpha 会让透明区变黑；
   编码前按 `value + (255 * (255 - alpha) + 127) / 255` 合成到白底。
 
-## 修复记录
-
-| 现象 | 原因 | 处理 |
-| --- | --- | --- |
-| 输出文件 0 字节，多页只生成一个文件 | `[DriverRender] XpsFormat=OpenXPS`，页面标记无法被 `CreatePageFromStream` 解析（`0x8052000C`） | 改为 `XpsFormat=XPS` |
-| “另存为”里出现两条“JPEG 图像” | `[FileSave]` 同时写了 `jpg=100` 和 `jpeg=100` | 只保留 `jpg=100`，`.jpeg` 仍可在文件名里手输 |
-| 个别目录打印报访问被拒绝（`0x80070005`） | 先写临时文件再读回发布，发布阶段被拒 | 第 1 页改为纯内存编码，不再落地临时文件 |
-| 透明区域打印成黑色 | 预乘 alpha 位图直接丢 alpha | 编码前合成白底 |
-| 安装程序装完没有打印机 | NSIS 32 位进程把 `System32` 重定向到 `SysWOW64`（无 `pnputil.exe`）；`Copy-Item` 源与目标相同 | 关闭 WOW64 重定向 + 全程用 `$SYSDIR` 绝对路径；复制前比对路径 |
-| 安装包体积大、依赖 Node.js | 早期用 nexe 打包 | 改为 NSIS，安装/卸载逻辑全部内置 |
-
 ## 排错
+
+> 安装失败时先看 `%ProgramData%\Print to image\install.log`，里面记录了驱动注册的每一步、证书信任状态，以及失败时自动附上的 `C:\Windows\INF\setupapi.dev.log` 末尾 40 行。
+
 
 | 现象 | 排查 |
 | --- | --- |
 | 打印后没有文件 | 看「事件查看器 → 应用程序和服务日志 → Microsoft → Windows → PrintService → Admin」，事件 372 会给出 Win32 错误码：`5` 是拒绝访问，`0x8052000C` 是页面标记无法解析 |
 | 安装卡在“正在创建打印机队列...” | 旧版用 `rundll32 printui.dll,PrintUIEntry /if` 建队列，该命令会弹出可能被安装窗口遮住的对话框并一直等待。1.0.0 起改为 `Add-PrinterDriver` + `Add-Printer`（有退出码、无界面）。若仍卡住：Alt+Tab 看是否有隐藏的驱动信任对话框，或手动执行 `Add-PrinterDriver -Name "Print to image"` 与 `Add-Printer -Name "Print to image" -DriverName "Print to image" -PortName "PORTPROMPT:"` |
 | 安装报“无法创建打印机” | 打开 `%ProgramData%\Print to image\install.log`，其中记录 `pnputil`、`printui`、创建队列脚本的退出码与完整输出 |
+| 安装日志里 `create-queue exit=1`，`pnputil` 说“已成功添加驱动程序包。(系统中已存在)”，`Add-PrinterDriver` 报“驱动程序存储区中不存在指定的驱动程序” | 上次卸载/失败安装把驱动包留在了 DriverStore，而 `pnputil /add-driver` 对已存在的包不会再安装一遍；这种残留状态下 `HKLM\SYSTEM\DriverDatabase\DriverInfFiles` 里已无对应 `oemNN.inf` 键。安装程序现在会先清理：注册表反查 → 扫描 `%SystemRoot%\INF\oem*.inf` 中内容含 `ptimage.cat` 的文件取得发布名 → `pnputil /delete-driver`，结果写在 `install.log` 的 `remove-driver exit=` 段 |
 | 设备管理器/打印机里残留旧驱动 | 运行 `pnputil /enum-drivers`（找 `ptimage.inf`），或直接卸载后重装；安装程序会在安装前清理旧驱动包 |
 | 卸载后证书还在 | 证书指纹每次构建可能变化，用旧安装包卸载只删除旧指纹；可在 `certmgr.msc` 手动删除 `CN=Print to image self-signed driver` |
 

@@ -58,7 +58,7 @@ if (-not (Test-Path (Join-Path $package 'ptimage.inf'))) { Fail "缺少 $package
 
 # 安装包只放驱动本体这 8 个文件；缺任何一个都视为打包错误
 $expected = @(
-    'ptimagefilter.dll', 'ptimageres.dll', 'ptimage.inf', 'ptimage.cat',
+    'ptimagefilter.dll', 'ptimageres.dll', 'ptimage.inf', 'ptimage_x86.inf', 'ptimage.cat',
     'ptimage.cer', 'ptimage-manifest.ini', 'ptimage-pdc.xml', 'ptimage-pipelineconfig.xml',
     'x86\ptimagefilter.dll', 'x86\ptimageres.dll'
 )
@@ -84,6 +84,17 @@ foreach ($name in $expected) {
     Copy-Item (Join-Path $package $name) $target -Force
 }
 Write-Ok "payload 已准备：$($expected.Count) 个文件（含 x86\） → $stage"
+
+# 安装辅助程序（用 Win32 API 注册 v4 驱动；安装过程完全不使用 PowerShell 脚本）
+$helpers = @(
+    @{ From = (Join-Path $root 'build\ptimageinstall.exe');      Name = 'ptimageinstall.exe' },
+    @{ From = (Join-Path $root 'build\x86\ptimageinstall.exe');  Name = 'ptimageinstall32.exe' }
+)
+foreach ($helper in $helpers) {
+    if (-not (Test-Path $helper.From)) { Fail "缺少安装辅助程序 $($helper.From)（先运行 build\build.cmd）" }
+    Copy-Item $helper.From (Join-Path $stage $helper.Name) -Force
+}
+Write-Ok "安装辅助程序已加入：ptimageinstall.exe / ptimageinstall32.exe"
 
 $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 (Join-Path $package 'ptimage.cer')
 $thumbprint = $cert.Thumbprint

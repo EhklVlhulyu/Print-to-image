@@ -85,7 +85,7 @@ foreach ($file in @($infPath, $manifestPath, $pipelinePath, $pdcPath, $resPath, 
 
 # 驱动包里只应有驱动本体 10 个文件（x64 + x86\）：既不含脚本/文档，也不含构建残留
 $allowedFiles = @(
-    'ptimagefilter.dll', 'ptimageres.dll', 'ptimage.inf', 'ptimage.cat',
+    'ptimagefilter.dll', 'ptimageres.dll', 'ptimage.inf', 'ptimage_x86.inf', 'ptimage.cat',
     'ptimage.cer', 'ptimage-manifest.ini', 'ptimage-pdc.xml', 'ptimage-pipelineconfig.xml',
     'x86/ptimagefilter.dll', 'x86/ptimageres.dll'
 )
@@ -123,9 +123,27 @@ Check ($inf -match 'ClassGUID\s*=\s*\{4D36E979-E325-11CE-BFC1-08002BE10318\}') '
 Check ($inf -match 'PnpLockdown\s*=\s*1') 'INF requests PnpLockdown'
 Check ($inf -notmatch '(?m)^\s*(AddReg|AddService|Include|Needs|DataFile|CoreDriverSections)\s*=') 'INF contains no v3-only directives'
 
-$decorations = @($inf -split [char]10 | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\[ptimage\.' })
-Check (($inf -match 'NTamd64\.6\.2\.\.\.9000') -and ($inf -match 'NTx86\.6\.2\.\.\.9000')) 'INF targets NTamd64 and NTx86 with a 6.2...9000 compatibility floor'
-Check ($decorations.Count -eq 2) "INF declares both architecture models (found $($decorations.Count))"
+$infX86Path = Join-Path $PackageDir 'ptimage_x86.inf'
+Check (Test-Path $infX86Path) 'ptimage_x86.inf'
+$infX86 = Read-Text $infX86Path
+
+foreach ($pair in @(@{ File = 'ptimage.inf'; Text = $inf; Arch = 'NTamd64'; Other = 'NTx86' },
+                    @{ File = 'ptimage_x86.inf'; Text = $infX86; Arch = 'NTx86'; Other = 'NTamd64' }))
+{
+    $name = $pair.File
+    $body = $pair.Text
+    Check ($body -match ('(?m)^\[Manufacturer\]\s*
+\s*"ptimage"=ptimage,' + $pair.Arch + '\s*$')) "$name targets $($pair.Arch) without OS-version decorations"
+    Check ($body -notmatch $pair.Other) "$name does not mention $($pair.Other)"
+    Check (@($body -split [char]10 | Where-Object { $_ -match '^\[SourceDisksFiles\.' }).Count -eq 0) "$name uses a single [SourceDisksFiles] section"
+    Check ($body -match 'ClassVer\s*=\s*4\.0') "$name declares ClassVer=4.0"
+    Check ($body -match 'PnpLockdown\s*=\s*1') "$name requests PnpLockdown"
+    Check ($body -match 'CatalogFile\s*=\s*ptimage\.cat') "$name references ptimage.cat"
+    Check ($body -match ('"Print to image"\s*=\s*PTIMAGE_INSTALL,\{2C5E7A91-4D83-4B6F-9E12-5A7C3D8B1F60\}')) "$name declares the Print to image model"
+}
+
+Check ($infX86 -match '(?m)^ptimagefilter\.dll=1,x86\s*$') 'ptimage_x86.inf copies the 32-bit filter from the x86 sub directory'
+Check ($infX86 -match '(?m)^ptimageres\.dll=1,x86\s*$') 'ptimage_x86.inf copies the 32-bit resource DLL from the x86 sub directory'
 
 $driverVer = @($inf -split [char]10 | ForEach-Object { $_.Trim() } | Where-Object { $_.StartsWith('DriverVer') })
 Check (($driverVer.Count -eq 1) -and $driverVer[0].EndsWith(',1.0.0')) "INF DriverVer is 1.0.0$(if ($driverVer.Count -eq 1) { " ($($driverVer[0]))" })"

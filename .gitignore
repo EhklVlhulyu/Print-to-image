@@ -27,3 +27,6 @@ tools/nsis/
 
 # 发行包
 dist/
+build/*.log
+build/tp.cmd
+build/helper-test.log

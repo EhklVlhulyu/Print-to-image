@@ -58,13 +58,14 @@ if (-not $SkipBuild)
 }
 
 # x86 binaries live in build\x86 and are staged into the package's x86 folder,
-# which is what [SourceDisksFiles.x86] refers to in ptimage.inf.
+# which is what [SourceDisksFiles] refers to in ptimage_x86.inf.
 $files = @(
     @{ Name = 'ptimagefilter.dll';          From = $build;      Sub = ''    },
     @{ Name = 'ptimageres.dll';             From = $build;      Sub = ''    },
     @{ Name = 'ptimagefilter.dll';          From = $x86;        Sub = 'x86' },
     @{ Name = 'ptimageres.dll';             From = $x86;        Sub = 'x86' },
     @{ Name = 'ptimage.inf';                From = $driver;     Sub = ''    },
+    @{ Name = 'ptimage_x86.inf';            From = $driver;     Sub = ''    },
     @{ Name = 'ptimage-manifest.ini';       From = $driver;     Sub = ''    },
     @{ Name = 'ptimage-pdc.xml';            From = $driver;     Sub = ''    },
     @{ Name = 'ptimage-pipelineconfig.xml'; From = $driver;     Sub = ''    }
